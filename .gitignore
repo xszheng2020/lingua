@@ -1,0 +1,7 @@
+*.pyc
+.vscode
+*.ipynb
+!requirements.txt
+!requirements_nodeps.txt
+slurm-*.out
+wandb
