@@ -165,12 +165,13 @@ class EvalHarnessLM(LM):
 
 def eval_on_val(generator, val_args: ValidationArgs, train_cfg):
     srcs = {}
-    for src in val_args.sources:
-        path = os.path.join(val_args.root_dir, src)
-        srcs[path] = 1.0
-    for src in train_cfg.data.sources:
+    for src in ['mbpp_shuffled']:
         path = os.path.join(train_cfg.data.root_dir, src)
         srcs[path] = 1.0
+
+    # for src in train_cfg.data.sources:
+    #     path = os.path.join(train_cfg.data.root_dir, src)
+    #     srcs[path] = 1.0
 
     multi_state = init_choice_state("", srcs, 0, get_global_rank(), get_world_size(), "*.val.jsonl")
     path_to_iter = setup_sources(multi_state)
@@ -195,15 +196,16 @@ def eval_on_val(generator, val_args: ValidationArgs, train_cfg):
         metrics = defaultdict(list)
         for i, ll in enumerate(loglikelihood):
             tmp = ll.sum().item()
-            metrics['nll'].append(tmp)
-            metrics['nll_per_token'].append(tmp / len(ll))
-            metrics['nll_per_char'].append(tmp / len(texts[i]))
+            metrics['val/nll'].append(tmp)
+            metrics['val/nll_per_token'].append(tmp / len(ll))
+            metrics['val/nll_per_char'].append(tmp / len(texts[i]))
 
-            metrics['avg_seqlen'].append(len(ll))
+            metrics['val/avg_seqlen'].append(len(ll))
         
         for m in metrics:
             metrics[m] = sum(metrics[m]) / len(metrics[m])
         metrics.update(dist_mean_dict(metrics))
+
         logger.info(f"Validation on {src} done. Metrics: {metrics}")
 
         name = os.path.basename(src)
@@ -245,15 +247,18 @@ def launch_eval(cfg: EvalArgs):
     model.eval()
     generator = PackedCausalTransformerGenerator(cfg.generator, model, tokenizer)
 
-    wrap = EvalHarnessLM(generator)
-    results = simple_evaluate(wrap, **asdict(cfg.harness))
+    # wrap = EvalHarnessLM(generator)
+    # results = simple_evaluate(wrap, **asdict(cfg.harness))
+
     val_results =  None
+    print(cfg.validation)
+
     if cfg.validation:
         val_results = eval_on_val(generator, cfg.validation, train_cfg)
     if get_global_rank() == 0:
-        with open(Path(cfg.dump_dir) / "results.json", "w") as f:
-            f.write(json.dumps(results))
-        logger.info(f"All evaluation results: {results['results']}")
+        # with open(Path(cfg.dump_dir) / "results.json", "w") as f:
+            # f.write(json.dumps(results))
+        # logger.info(f"All evaluation results: {results['results']}")
         if val_results is not None:
             with open(Path(cfg.dump_dir) / "validation.json", "w") as f:
                 f.write(json.dumps(val_results))
@@ -267,11 +272,11 @@ def launch_eval(cfg: EvalArgs):
         }
         if cfg.global_step is not None:
             timestamp["global_step"] = cfg.global_step
-        print(
-            json.dumps(timestamp | results["results"]),
-            file=open(metric_log_path, mode="a"),
-            flush=True,
-        )
+        # print(
+        #     json.dumps(timestamp | results["results"]),
+        #     file=open(metric_log_path, mode="a"),
+        #     flush=True,
+        # )
 
         val_log_path = Path(cfg.metric_log_dir) / "metrics.validation.jsonl"
         if val_results is not None:
@@ -282,6 +287,8 @@ def launch_eval(cfg: EvalArgs):
             )
     
     del generator
+
+    return val_results
 
 
 def main():
