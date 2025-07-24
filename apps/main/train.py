@@ -562,7 +562,12 @@ def train(args: TrainArgs):
                 )
                 eval_args.metric_log_dir = args.dump_dir
                 if args.async_eval_gpus is None:
-                    launch_eval(eval_args)
+                    val_results = launch_eval(eval_args)
+
+                    val_results = val_results['mbpp_shuffled']
+                    val_results['global_step'] = train_state.step
+                    print(val_results)
+                    
                 elif get_is_master():
                     if wandb.run is not None and args.logging.wandb is not None:
                         eval_args.wandb = deepcopy(args.logging.wandb)
@@ -579,6 +584,9 @@ def train(args: TrainArgs):
                             )
                         )
 
+                if get_is_master():
+                    metric_logger.log(val_results)
+                    
             if preemption_flag["flag"]:
                 if not saved:
                     checkpoint.save(
