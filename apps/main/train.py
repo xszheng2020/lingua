@@ -561,12 +561,19 @@ def train(args: TrainArgs):
                     )
                 )
                 eval_args.metric_log_dir = args.dump_dir
+                metrics = {}
+                metrics['global_step'] = train_state.step
+
                 if args.async_eval_gpus is None:
                     val_results = launch_eval(eval_args)
 
-                    val_results = val_results['mbpp_shuffled']
-                    val_results['global_step'] = train_state.step
-                    print(val_results)
+                    for key in ['mbpp_shuffled', 'humaneval_shuffled']:
+                        metrics['{}/nll'.format(key)] = val_results[key]['nll']
+                        metrics['{}/nll_per_token'.format(key)] = val_results[key]['nll_per_token']
+                        metrics['{}/nll_per_char'.format(key)] = val_results[key]['nll_per_char']
+                        metrics['{}/avg_seqlen'.format(key)] = val_results[key]['avg_seqlen']
+
+                    # print(metrics)
                     
                 elif get_is_master():
                     if wandb.run is not None and args.logging.wandb is not None:
@@ -585,7 +592,7 @@ def train(args: TrainArgs):
                         )
 
                 if get_is_master():
-                    metric_logger.log(val_results)
+                    metric_logger.log(metrics)
                     
             if preemption_flag["flag"]:
                 if not saved:
