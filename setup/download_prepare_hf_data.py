@@ -2,6 +2,8 @@
 
 import argparse
 import os
+os.environ['HF_TOKEN'] = ''
+
 import time
 import subprocess
 import requests
@@ -49,6 +51,7 @@ def parquet_to_jsonl(dataset, work_dir, src_dir, tgt_dir, ntasks=64):
                 file_progress=True,
                 doc_progress=True,
                 glob_pattern="**/*.parquet",
+                text_key="content",
             ),
             JsonlWriter(
                 tgt_dir,
@@ -83,7 +86,12 @@ def main(dataset, memory, data_dir, seed=42, nchunks=32):
         "fineweb_edu_10bt": "HuggingFaceFW/fineweb-edu",
         "dclm_baseline_1.0": "mlfoundations/dclm-baseline-1.0",
         "dclm_baseline_1.0_10prct": "mlfoundations/dclm-baseline-1.0",
+        "the_stack_dedup_python": "bigcode/the-stack-dedup",
+        "the_stack_dedup_python_subset": "bigcode/the-stack-dedup",
+        "mbpp": "xszheng2020/mbpp",
+        "humaneval": "xszheng2020/humaneval",
     }[dataset]
+
     src_dir = f"{data_dir}/{dataset}"
     out_dir = f"{src_dir}_shuffled"
     os.makedirs(out_dir, exist_ok=True)
@@ -94,20 +102,33 @@ def main(dataset, memory, data_dir, seed=42, nchunks=32):
         "fineweb_edu_10bt": ".jsonl",
         "dclm_baseline_1.0": ".jsonl.zst",
         "dclm_baseline_1.0_10prct": ".jsonl.zst",
+        "the_stack_dedup_python": ".jsonl",
+        "the_stack_dedup_python_subset": ".jsonl",
+        "mbpp": ".jsonl",
+        "humaneval": ".jsonl",
     }[dataset]
     cat_command = {
         "fineweb_edu": "cat {}",
         "fineweb_edu_10bt": "cat {}",
         "dclm_baseline_1.0": "zstdcat {} && echo",
         "dclm_baseline_1.0_10prct": "zstdcat {} && echo",
+        "the_stack_dedup_python": "cat {}",
+        "the_stack_dedup_python_subset": "cat {}",
+        "mbpp": "cat {}",
+        "humaneval": "cat {}",
     }[dataset]
     allow_patterns = {
         "fineweb_edu": None,
         "fineweb_edu_10bt": "sample/10BT/*",
         "dclm_baseline_1.0": "*.jsonl.zst",
         "dclm_baseline_1.0_10prct": "global-shard_01_of_10/*.jsonl.zst",
+        "the_stack_dedup_python": "data/python/*",
+        "the_stack_dedup_python_subset": "data/python/data-0000*",
+        "mbpp": "data/*",
+        "humaneval": "data/*",
     }[dataset]
     suffix = ".jsonl"
+
     k_validation = 10000  # Number of lines to take from each chunk for validation
 
     # Setup terashuf
@@ -116,7 +137,7 @@ def main(dataset, memory, data_dir, seed=42, nchunks=32):
     # Download dataset
     download_dataset(repo_id, src_dir, allow_patterns)
 
-    if "fineweb" in dataset:
+    if "fineweb" in dataset or "stack" in dataset or "mbpp" in dataset or "humaneval" in dataset:
         parquet_to_jsonl(dataset, work_dir, src_dir, src_dir)
 
     # Set up environment variables
