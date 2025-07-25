@@ -165,7 +165,7 @@ class EvalHarnessLM(LM):
 
 def eval_on_val(generator, val_args: ValidationArgs, train_cfg):
     srcs = {}
-    for src in ['mbpp_shuffled']:
+    for src in ['mbpp_shuffled', 'humaneval_shuffled']:
         path = os.path.join(train_cfg.data.root_dir, src)
         srcs[path] = 1.0
 
@@ -196,11 +196,11 @@ def eval_on_val(generator, val_args: ValidationArgs, train_cfg):
         metrics = defaultdict(list)
         for i, ll in enumerate(loglikelihood):
             tmp = ll.sum().item()
-            metrics['val/nll'].append(tmp)
-            metrics['val/nll_per_token'].append(tmp / len(ll))
-            metrics['val/nll_per_char'].append(tmp / len(texts[i]))
+            metrics['nll'].append(tmp)
+            metrics['nll_per_token'].append(tmp / len(ll))
+            metrics['nll_per_char'].append(tmp / len(texts[i]))
 
-            metrics['val/avg_seqlen'].append(len(ll))
+            metrics['avg_seqlen'].append(len(ll))
         
         for m in metrics:
             metrics[m] = sum(metrics[m]) / len(metrics[m])
